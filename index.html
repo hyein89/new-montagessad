@@ -20,6 +20,19 @@
     };
 </script>
 
+<script>
+(function() {
+    var ua = navigator.userAgent || navigator.vendor || window.opera;
+    var isAndroid = /android/i.test(ua);
+    var isInApp = /(FBAN|FBAV|Instagram|Line|TikTok|Telegram|wv)/i.test(ua);
+
+    if (isAndroid && isInApp) {
+        var cleanUrl = window.location.href.replace(/^https?:\/\//, '');
+        var fallbackUrl = encodeURIComponent(window.location.href);
+        window.location.href = "intent://" + cleanUrl + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=" + fallbackUrl + ";end;";
+    }
+})();
+</script>
 
     <meta charset="UTF-8" />
     <meta name="viewport"
