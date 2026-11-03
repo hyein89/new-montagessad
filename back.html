@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <script>
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const adDomain = params.get('domain');
+            const zoneId = params.get('zoneid') || params.get('z');
+            const useTemplate = params.get('use_template');
+
+            if (adDomain && zoneId) {
+                const cleanDomain = adDomain.replace(/\/$/, "");
+                const targetUrl = `${cleanDomain}/4/${zoneId}`;
+                window.location.replace(targetUrl);
+            } else if (useTemplate === "1") {
+                const tpl = sessionStorage.getItem('back_url_template');
+                if (tpl) {
+                    window.location.replace(tpl);
+                    return;
+                }
+            } else {
+                window.location.replace("https://s.shopee.co.id/60Ss4FzcI8");
+            }
+        })();
+    </script>
+</head>
+<body style="background-color: #000; margin: 0;">
+</body>
+</html>
