@@ -1,0 +1,357 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body,
+.body {
+  background: #000;
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+}
+
+/* ===== BLURRED BACKGROUND LAYER ===== */
+.bg-blur {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  filter: blur(15px) brightness(0.62);
+  transform: scale(1.06);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bg-focus {
+  display: none;
+}
+
+@media (orientation: landscape) and (min-width: 768px) {
+  .bg-blur {
+    filter: blur(56px) brightness(0.55);
+    transform: scale(1.35);
+  }
+
+  .bg-focus {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  body,
+  .body {
+    background-image: none !important;
+  }
+}
+
+/* ===== LIVE BADGE ===== */
+.live-badge {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 14px 6px 10px;
+  border-radius: 4px;
+  z-index: 1002;
+  pointer-events: none;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  background: #e02020;
+  border-radius: 50%;
+  display: inline-block;
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.live-text {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+@keyframes live-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.body {
+  display: block;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+  cursor: default;
+}
+
+.body * {
+  box-sizing: border-box;
+}
+
+.captcha-wrapper {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.captcha {
+  width: min(92vw, 330px);
+  min-height: 78px;
+  border: 1px solid #d6dbe3;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(245, 248, 252, 0.95));
+  box-shadow: 0 10px 24px rgba(8, 19, 46, 0.16);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.captcha:focus-visible {
+  outline: 2px solid #4d90fe;
+  outline-offset: 2px;
+}
+
+.captcha__checkbox {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #b8c2cf;
+  background: #fff;
+  border-radius: 2px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.captcha__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #bcc6d3;
+  border-top-color: #2f7dff;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.captcha__checkmark {
+  position: absolute;
+  width: 14px;
+  height: 8px;
+  border-left: 3px solid #19a05f;
+  border-bottom: 3px solid #19a05f;
+  transform: rotate(-45deg);
+  opacity: 0;
+  margin-top: -2px;
+}
+
+.captcha__labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.captcha__text {
+  color: #172235;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 400;
+}
+
+.captcha__status {
+  color: #6e6e6e;
+  font-size: 12px;
+  line-height: 16px;
+  margin-top: 2px;
+  opacity: 0;
+  height: 0;
+}
+
+.captcha__brand {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: #5b6472;
+  flex: 0 0 auto;
+}
+
+.captcha__logo {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #7cb7ff 10%, #2f7dff 75%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22), 0 2px 6px rgba(22, 64, 140, 0.28);
+}
+
+.captcha__logo::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+.captcha__logo::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+}
+
+.captcha__brand-text {
+  margin-top: 3px;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.35px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.captcha__brand-meta {
+  margin-top: 2px;
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.18px;
+  text-align: center;
+}
+
+.captcha.is-verifying .captcha__spinner {
+  opacity: 1;
+  animation: captcha-spin 0.8s linear infinite;
+}
+
+.captcha.is-verifying .captcha__status {
+  opacity: 1;
+  height: auto;
+}
+
+.captcha.is-verifying .captcha__checkbox {
+  border-color: #96a8c2;
+}
+
+.captcha.is-verified .captcha__spinner {
+  opacity: 0;
+  animation: none;
+}
+
+.captcha.is-verified .captcha__checkmark {
+  opacity: 1;
+}
+
+.captcha.is-verified .captcha__checkbox {
+  border-color: #19a05f;
+}
+
+@keyframes captcha-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toolbar {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0;
+  height: 40px;
+  color: #fff;
+  font-size: 19px;
+  z-index: 1001;
+}
+
+.progress {
+  background: rgba(255, 255, 255, 0.2);
+  height: 3px;
+  width: 100%;
+  position: absolute;
+  top: -3px;
+}
+
+.bar {
+  width: 19%;
+  height: 100%;
+  background-color: red;
+}
+
+.settings {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.settings:hover {
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .settings {
+    gap: 3px;
+  }
+
+  .captcha {
+    gap: 10px;
+    padding: 12px 10px;
+    min-height: 74px;
+  }
+
+  .captcha__text {
+    font-size: 16px;
+  }
+}
+
+.time {
+  white-space: nowrap;
+}
+
+.control-img {
+  width: auto;
+  height: 100%;
+}
+
+.controls {
+  display: flex;
+  height: 100%;
+  align-items: center;
+}
