@@ -1,20 +1,18 @@
 /**
  * Traffic Handler - Consolidated Logic
  * Handles all exit types (mainExit, autoexit, reverse, back)
- * Supports both Zone IDs and Direct URLs (with placeholders)
+ * Supports Monetag Zone IDs, Adsterra Split Params (slug + key), and Direct URLs
  */
 
 (function () {
     // --- 1. Utilities ---
     var parsedConfig = null;
 
-    // Pre-built URL cache (built once during init, used synchronously on trigger)
     var preBuiltUrls = {
         mainExit_currentTab: null,
         mainExit_newTab: null
     };
 
-    // Get platform version (async)
     var getPlatformVersion = async () => {
         var nav = navigator;
         if (!nav.userAgentData) return "";
@@ -22,12 +20,10 @@
             var hints = ["platformVersion"];
             return (await nav.userAgentData.getHighEntropyValues(hints)).platformVersion;
         } catch (e) {
-            console.error("Error retrieving pVersion", e);
             return "";
         }
     };
 
-    // Get Timezone
     var getTimezone = () => {
         if (typeof Intl !== "undefined" && typeof Intl.DateTimeFormat === "function") {
             var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -36,10 +32,8 @@
         return "";
     };
 
-    // Get Timezone Offset
     var getTimezoneOffset = () => (new Date).getTimezoneOffset();
 
-    // Helper to create URLSearchParams from object
     var createSearchParams = (obj) => {
         let params = new URLSearchParams();
         Object.keys(obj).forEach(key => {
@@ -49,7 +43,6 @@
     };
 
     // --- 2. Parameter Parsing ---
-
     var currentUrl = new URL(window.location.href);
     var urlParams = {
         pz: currentUrl.searchParams.get("pz") ?? "",
@@ -74,13 +67,10 @@
     };
 
     // --- 3. URL Construction & Resolution ---
-
-    // Resolve placeholders in URL (e.g. {{var_1}})
     var resolveUrl = (template, params) => {
         let url = template;
         Object.keys(params).forEach(key => {
             if (params[key]) {
-                // Replace {{key}}, {{.key}}, {{ key }}
                 const patterns = [
                     new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'),
                     new RegExp(`\\{\\{\\s*\\.${key}\\s*\\}\\}`, 'g')
@@ -93,7 +83,20 @@
         return url;
     };
 
-    // Build params object for Monetag zone links
+    // Perakit khusus Adsterra (menggabungkan domain + slug + key di memori)
+    var buildAdsterraUrl = (slug, key, domain) => {
+        let targetDomain = domain.includes("http") ? domain : "https://" + domain;
+        let baseUrl = new URL(targetDomain + "/" + slug);
+        baseUrl.searchParams.set("key", key);
+
+        // Teruskan subid jika memakai tracker (opsional)
+        const clickId = urlParams.s || urlParams.var_1 || urlParams.var;
+        if (clickId) {
+            baseUrl.searchParams.set("subid", clickId);
+        }
+        return baseUrl.toString();
+    };
+
     var buildZoneParams = async ({ zone, passParamToParams }) => {
         const preservedClickId = urlParams.var_1 || urlParams.var;
         const osVersion = await getPlatformVersion();
@@ -111,7 +114,6 @@
             bto: tzOffset !== undefined ? tzOffset.toString() : "",
             cmeta: btoa(JSON.stringify({ dataVer: "", landingName: "", templateHash: "" }))
         };
-
 
         if (zone) {
             paramsObj.src = zone;
@@ -135,19 +137,29 @@
         return finalParams;
     };
 
+    var buildZoneUrl = async (zone, domain, passParamToParams) => {
+        let targetDomain = domain.includes("http") ? domain : "https://" + domain;
+        let baseUrl = new URL(targetDomain + "/4/" + zone.toString());
+        let params = await buildZoneParams({ zone: zone.toString(), passParamToParams });
+        return decodeURIComponent(baseUrl.toString() + "?" + params.toString());
+    };
 
-    // Construct full Zone URL
-    var buildZoneUrl = async (zone, domain, passParamToParams) => { 
-    let targetDomain = domain.includes("http") ? domain : "https://" + domain; 
-    let baseUrl = new URL(targetDomain + "/4/" + zone.toString()); 
-    let params = await buildZoneParams({ zone: zone.toString(), passParamToParams }); 
-    return decodeURIComponent(baseUrl.toString() + "?" + params.toString()); 
-};
-
+    // Helper terpadu untuk merakit URL sesuai mode yang dipakai
+    var resolveDestinationUrl = async (tabConfig) => {
+        if (!tabConfig) return null;
+        if (tabConfig.slug && tabConfig.key && tabConfig.domain) {
+            return buildAdsterraUrl(tabConfig.slug, tabConfig.key, tabConfig.domain);
+        }
+        if (tabConfig.zoneId && tabConfig.domain) {
+            return await buildZoneUrl(tabConfig.zoneId, tabConfig.domain);
+        }
+        if (tabConfig.url) {
+            return resolveUrl(tabConfig.url, urlParams);
+        }
+        return null;
+    };
 
     // --- 4. Navigation & Exit Logic ---
-
-    // Simple redirect
     var redirect = (url) => {
         window.location.replace(url);
     };
@@ -158,15 +170,9 @@
 
     var resolveDefaultBackHtmlBase = (origin, pathname) => {
         let backBase = `${origin}${pathname}`;
-        if (backBase.includes("index.html")) {
-            backBase = backBase.split("/index.html")[0];
-        }
-        if (backBase.includes("back.html")) {
-            backBase = backBase.split("/back.html")[0];
-        }
-        if (backBase.endsWith("/")) {
-            backBase = backBase.substring(0, backBase.length - 1);
-        }
+        if (backBase.includes("index.html")) backBase = backBase.split("/index.html")[0];
+        if (backBase.includes("back.html")) backBase = backBase.split("/back.html")[0];
+        if (backBase.endsWith("/")) backBase = backBase.substring(0, backBase.length - 1);
         return `${backBase}/back.html`;
     };
 
@@ -178,7 +184,6 @@
         }
     };
 
-    // Initialize Back Button Trap
     var initBack = async (config) => {
         var backConfig = config ? config.back : null;
         if (!backConfig) return;
@@ -190,7 +195,6 @@
         var { origin, pathname } = window.location;
         var backUrl = new URL(resolveDefaultBackHtmlBase(origin, pathname));
 
-        // Push state history
         var pushHistory = (urlStr) => {
             try {
                 var originalUrl = window.location.href;
@@ -198,27 +202,22 @@
                     window.history.pushState(null, "Please wait...", urlStr);
                 }
                 window.history.pushState(null, document.title, originalUrl);
-                console.log(`Back initialized ${count} times with ${urlStr}`);
             } catch (e) {
                 console.error("Failed to push state", e);
             }
         };
 
-        if (currentTab.url) {
-            // URL Mode: Store template in SessionStorage, pass simple params
+        // Untuk Adsterra Split Mode & URL Mode: simpan hasil rakitan di sessionStorage
+        // agar domain/key Adsterra tidak muncul di address bar URL
+        if ((currentTab.slug && currentTab.key && currentTab.domain) || currentTab.url) {
+            let finalBackTemplate = await resolveDestinationUrl(currentTab);
             try {
-                sessionStorage.setItem("back_url_template", currentTab.url);
+                sessionStorage.setItem("back_url_template", finalBackTemplate);
             } catch (err) {
                 console.warn("SessionStorage error", err);
             }
             let params = createSearchParams(urlParams);
             params.set("use_template", "1");
-            // Add domain for safety/logging
-            try {
-                let parsed = new URL(currentTab.url.includes("http") ? currentTab.url : "https://" + currentTab.url);
-                params.set("domain", parsed.origin);
-            } catch (e) { }
-
             pushHistory(backUrl.toString() + "?" + params.toString());
 
         } else if (currentTab.domain && currentTab.zoneId) {
@@ -232,19 +231,10 @@
         }
     };
 
-    // Handle AutoExit and Reverse
     var handleExit = async (config, type, initBackFlag = true) => {
         var exitData = config[type] ? config[type].currentTab : null;
-        console.log(type + " triggered", config);
-
         if (exitData) {
-            let finalUrl;
-            if (exitData.zoneId && exitData.domain) {
-                finalUrl = await buildZoneUrl(exitData.zoneId, exitData.domain);
-            } else if (exitData.url) {
-                finalUrl = resolveUrl(exitData.url, urlParams);
-            }
-
+            let finalUrl = await resolveDestinationUrl(exitData);
             if (finalUrl) {
                 if (initBackFlag) await initBack(config);
                 redirect(finalUrl);
@@ -254,18 +244,12 @@
         exitError(exitData, type);
     };
 
-    // Handle MainExit (Click)
-    // Uses pre-built URLs â€” FULLY SYNC for popup safety on all browsers
     var handleMainExit = (config, type, preOpenedNewTab = null) => {
         var exitConfig = config[type];
-        console.log(type + " triggered (sync, pre-built)", config);
-
         if (exitConfig) {
-            // Use pre-built URLs
             var currentUrlResolved = preBuiltUrls.mainExit_currentTab;
             var newUrlResolved = preBuiltUrls.mainExit_newTab;
 
-            // Execute Navigation â€” ALL SYNC, no await
             let newTabOpened = preOpenedNewTab;
             if (newUrlResolved) {
                 if (newTabOpened && !newTabOpened.closed) {
@@ -279,9 +263,7 @@
                 }
 
                 if (newTabOpened) {
-                    try {
-                        newTabOpened.opener = null;
-                    } catch (e) { }
+                    try { newTabOpened.opener = null; } catch (e) { }
                 }
             }
 
@@ -295,28 +277,21 @@
         }
     };
 
-    // Uses pre-built URLs â€” sync where possible
     var handleMainExitNewImmediateCurrentOnReturn = (config, type, options = {}) => {
         var exitConfig = config[type];
-        console.log(type + " triggered (new-immediate/current-on-return, pre-built)", config);
-
         if (!exitConfig) {
             exitError(exitConfig, type);
             return;
         }
 
-        // Use pre-built URLs
         var currentUrlResolved = preBuiltUrls.mainExit_currentTab;
         var newUrlResolved = preBuiltUrls.mainExit_newTab;
 
-        // Open new tab immediately â€” SYNC from user click
         let newTabOpened = null;
         if (newUrlResolved) {
             newTabOpened = window.open(newUrlResolved, "_blank");
             if (newTabOpened) {
-                try {
-                    newTabOpened.opener = null;
-                } catch (e) { }
+                try { newTabOpened.opener = null; } catch (e) { }
             }
         }
 
@@ -355,7 +330,6 @@
                 hiddenSeen = true;
                 return;
             }
-
             if (document.visibilityState === "visible") {
                 if (!requireHiddenBeforeCurrent || hiddenSeen) {
                     document.removeEventListener("visibilitychange", onVisibility);
@@ -366,17 +340,15 @@
 
         document.addEventListener("visibilitychange", onVisibility);
 
-        // Fallback: if browser blocks new tab, continue with current tab flow.
         if (!newTabOpened) {
             runCurrentRedirect();
         }
     };
 
     // --- 5. Configuration Parser ---
-
     var parseAppConfig = (rawConfig) => {
         if (typeof rawConfig === "undefined") {
-            document.body.innerHTML = `<p>LANDING CAN'T BE RENDERED. PLEASE ADD CODE FROM PROPUSH.</p>`;
+            document.body.innerHTML = `<p>LANDING CAN'T BE RENDERED. PLEASE ADD CONFIG.</p>`;
             return false;
         }
 
@@ -384,7 +356,8 @@
         let parsed = { videoCount, prizeName, prizeImg };
 
         let tabs = ["currentTab", "newTab"];
-        let types = ["zoneId", "url"];
+        let types = ["zoneId", "url", "slug", "key"];
+        let domainRequiredTypes = ["zoneId", "slug", "key"];
 
         Object.entries(exits).forEach(([key, value]) => {
             let [exitName, tabOrType, type] = key.split("_");
@@ -393,26 +366,22 @@
                 if (!parsed[exitName]) parsed[exitName] = {};
 
                 if (tabs.includes(tabOrType)) {
-                    // e.g. mainExit_currentTab_url
-                    let tab = tabOrType; // currentTab
-                    // type is 'url' or 'zoneId'
+                    let tab = tabOrType;
                     if (types.includes(type)) {
                         parsed[exitName][tab] = {
                             ...parsed[exitName][tab],
-                            domain: type === "zoneId" ? domain : undefined,
+                            domain: domainRequiredTypes.includes(type) ? domain : parsed[exitName][tab]?.domain,
                             [type]: value
                         };
                     }
                 } else if (types.includes(tabOrType)) {
-                    // e.g. autoexit_url (implies currentTab)
                     let typeName = tabOrType;
                     parsed[exitName].currentTab = {
                         ...parsed[exitName].currentTab,
-                        domain: typeName === "zoneId" ? domain : undefined,
+                        domain: domainRequiredTypes.includes(typeName) ? domain : parsed[exitName].currentTab?.domain,
                         [typeName]: value
                     };
                 } else {
-                    // e.g. autoexit_timeToRedirect
                     let setting = tabOrType;
                     parsed[exitName][setting] = value;
                 }
@@ -422,40 +391,23 @@
         return parsed;
     };
 
-
     // --- 6. Initialization ---
-
     var init = async () => {
         parsedConfig = parseAppConfig(APP_CONFIG);
         if (!parsedConfig) return;
 
-        // --- Pre-build URLs (async, runs once during init) ---
         try {
             var mainExitConf = parsedConfig.mainExit;
             if (mainExitConf) {
-                if (mainExitConf.currentTab) {
-                    if (mainExitConf.currentTab.zoneId && mainExitConf.currentTab.domain) {
-                        preBuiltUrls.mainExit_currentTab = await buildZoneUrl(mainExitConf.currentTab.zoneId, mainExitConf.currentTab.domain);
-                    } else if (mainExitConf.currentTab.url) {
-                        preBuiltUrls.mainExit_currentTab = resolveUrl(mainExitConf.currentTab.url, urlParams);
-                    }
-                }
-                if (mainExitConf.newTab) {
-                    if (mainExitConf.newTab.zoneId && mainExitConf.newTab.domain) {
-                        preBuiltUrls.mainExit_newTab = await buildZoneUrl(mainExitConf.newTab.zoneId, mainExitConf.newTab.domain);
-                    } else if (mainExitConf.newTab.url) {
-                        preBuiltUrls.mainExit_newTab = resolveUrl(mainExitConf.newTab.url, urlParams);
-                    }
-                }
+                preBuiltUrls.mainExit_currentTab = await resolveDestinationUrl(mainExitConf.currentTab);
+                preBuiltUrls.mainExit_newTab = await resolveDestinationUrl(mainExitConf.newTab);
             }
-            // Pre-build back trap
             await initBack(parsedConfig);
-            console.log("Pre-built URLs ready", preBuiltUrls);
         } catch (e) {
             console.error("URL pre-build error", e);
         }
 
-        // 1. Setup Main Exit (Click Listener)
+        // 1. Setup Main Exit
         var mainExitConfig = parsedConfig.mainExit || {};
         var mainExitTriggered = false;
         var triggerSelector = mainExitConfig.triggerSelector;
@@ -514,7 +466,6 @@
 
         // 2. Setup Auto Exit
         var autoExitConfig = parsedConfig.autoexit;
-        // Check for 'ae' param override
         let aeParam = parseInt(urlParams.ae, 10);
         let timeout = !isNaN(aeParam) ? aeParam : (autoExitConfig ? (autoExitConfig.timeToRedirect ?? 90) : 90);
 
@@ -558,13 +509,11 @@
         if (reverseConfig && reverseConfig.currentTab) {
             let pushed = false;
 
-            // Push state on first click
             window.addEventListener("click", () => {
                 if (!pushed) {
                     try {
                         let path = window.location.pathname;
                         let fullUrl = path + window.location.search;
-                        // Back trap already initialized during pre-build
                         window.history.pushState(null, "", fullUrl);
                         pushed = true;
                     } catch (e) {
@@ -573,7 +522,6 @@
                 }
             }, { capture: true });
 
-            // Handle Popstate (User pressed Back)
             window.addEventListener("popstate", () => {
                 if (isBackTrapLocation()) {
                     window.location.replace(window.location.href);
@@ -583,12 +531,7 @@
             });
         }
 
-        // 4. Setup Push Notifications (Vayxi) if configured
-        // (Keeping original logic simplified)
-
-        // 5. Localization (from common.js)
-        // (Simplified for traffic handler focus, assuming external script or keeping lightweight)
-        // If localization is critical, it should ideally be in a separate file, but I'll allow the basics:
+        // 4. Localization
         (async () => {
             let lang = new URLSearchParams(window.location.search).get("lang") ||
                 (navigator.language).split("-")[0] || "en";
@@ -599,7 +542,6 @@
                 let res = await fetch(`./locales/${lang}.json`);
                 if (res.ok) {
                     let translations = await res.json();
-                    // Apply to data-translate elements
                     document.querySelectorAll("[data-translate]").forEach(el => {
                         let key = el.getAttribute("data-translate");
                         if (translations[key]) el.textContent = translations[key];
@@ -611,7 +553,5 @@
         })();
     };
 
-    // Run
     init();
-
 })();
