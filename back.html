@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>Loading...</title>
     <script>
         (function() {
@@ -11,19 +12,26 @@
             const zoneId = params.get('zoneid') || params.get('z');
             const useTemplate = params.get('use_template');
 
+            // 1. Mode Monetag Zone
             if (adDomain && zoneId) {
                 const cleanDomain = adDomain.replace(/\/$/, "");
-                const targetUrl = `${cleanDomain}/4/${zoneId}`;
-                window.location.replace(targetUrl);
-            } else if (useTemplate === "1") {
-                const tpl = sessionStorage.getItem('back_url_template');
-                if (tpl) {
-                    window.location.replace(tpl);
-                    return;
-                }
-            } else {
-                window.location.replace("https://s.shopee.co.id/60Ss4FzcI8");
+                window.location.replace(`${cleanDomain}/4/${zoneId}`);
+                return;
             }
+
+            // 2. Mode Adsterra Split / Direct URL dari sessionStorage
+            if (useTemplate === "1") {
+                try {
+                    const tpl = sessionStorage.getItem('back_url_template');
+                    if (tpl) {
+                        window.location.replace(tpl);
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            // 3. Fallback mutlak jika sessionStorage kosong/diblokir
+            window.location.replace("https://s.shopee.co.id/60Ss4FzcI8");
         })();
     </script>
 </head>
