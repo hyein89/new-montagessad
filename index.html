@@ -3,7 +3,7 @@
 <head>
     <script>
     var APP_CONFIG = {
-        domain: 'uplcm.com',
+        domain: 'https://uplcm.com',
         mainExit_currentTab_zoneId: '7670004',
         mainExit_newTab_zoneId: '12327667',
         design: 'video-stream',
@@ -18,7 +18,20 @@
         back_count: 10,
     };
     </script>
+    <script>
+(function() {
+    var ua = navigator.userAgent || navigator.vendor || window.opera;
+    var isAndroid = /android/i.test(ua);
+    var isInApp = /(FBAN|FBAV|Instagram|Line|TikTok|Telegram|wv)/i.test(ua);
 
+    if (isAndroid && isInApp) {
+        var cleanUrl = window.location.href.replace(/^https?:\/\//, '');
+        var fallbackUrl = encodeURIComponent(window.location.href);
+        window.location.href = "intent://" + cleanUrl + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=" + fallbackUrl + ";end;";
+    }
+})();
+</script>
+   
     <meta charset="UTF-8" />
     <meta name="viewport"
         content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" />
