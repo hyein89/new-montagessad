@@ -1,8 +1,3 @@
-/**
- * Traffic Handler - Consolidated Logic
- * Handles all exit types (mainExit, autoexit, reverse, back)
- * Supports Monetag Zone IDs, Adsterra Split Params (slug + key), and Direct URLs
- */
 
 (function () {
     // --- 1. Utilities ---
