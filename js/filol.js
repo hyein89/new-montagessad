@@ -1,3 +1,4 @@
+
 /**
  * Traffic Handler - Consolidated Logic
  * Handles all exit types (mainExit, autoexit, reverse, back)
@@ -93,31 +94,20 @@
         return url;
     };
 
-    // Build params object for Monetag zone links
+    // Build params object for Remoby zone links (/sm)
     var buildZoneParams = async ({ zone, passParamToParams }) => {
-        const preservedClickId = urlParams.var_1 || urlParams.var;
-        const osVersion = await getPlatformVersion();
-        const timezone = getTimezone();
-        const tzOffset = getTimezoneOffset();
+        const preservedClickId = urlParams.var_1;
 
         let paramsObj = {
-            click_id: urlParams.s || preservedClickId,
+            click_id: preservedClickId,
             ymid: preservedClickId,
-            var: urlParams.var_2 || urlParams.z,
-            var3: urlParams.var_3,
-            rhd: urlParams.rhd || "1",
-            os_version: osVersion,
-            btz: timezone ? timezone.toString() : "",
-            bto: tzOffset !== undefined ? tzOffset.toString() : "",
-            cmeta: btoa(JSON.stringify({ dataVer: "", landingName: "", templateHash: "" }))
+            var: urlParams.var_2 ?? urlParams.z,
+            var3: urlParams.var_3
         };
 
+        if (zone) paramsObj.src = zone;
 
-        if (zone) {
-            paramsObj.src = zone;
-            paramsObj.zoneid = zone;
-        }
-
+        // Custom param mapping if needed (rarely used but supported)
         let finalParams = createSearchParams(paramsObj);
 
         if (passParamToParams) {
@@ -134,7 +124,6 @@
 
         return finalParams;
     };
-
 
     // Construct full Zone URL
     var buildZoneUrl = async (zone, domain, passParamToParams) => { 
@@ -614,4 +603,4 @@
     // Run
     init();
 
-})();
+})(); 
