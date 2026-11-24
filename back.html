@@ -9,23 +9,43 @@
             'use strict';
 
             var params = new URLSearchParams(window.location.search);
+            var directUrl = (params.get('url') || '').trim();
             var adDomain = (params.get('domain') || '').trim();
             var zoneId = (params.get('zoneid') || params.get('z') || '').trim();
             var useTemplate = (params.get('use_template') || '').trim();
-            var fallbackUrl = 'https://s.shopee.co.id/2La7ZMvTeY';
+            var fallbackUrl = 'https://s.shopee.co.id/AAIywFHHb6';
 
-            function appendForwardParams(url) {
-                var extra = new URLSearchParams();
+            function isSafeHttpUrl(raw) {
+                try {
+                    var parsed = new URL(raw);
+                    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+                } catch (err) {
+                    return false;
+                }
+            }
+
+            function appendForwardParams(baseUrl) {
+                var parsed;
+                try {
+                    parsed = new URL(baseUrl);
+                } catch (err) {
+                    return baseUrl;
+                }
                 params.forEach(function (value, key) {
-                    if (key !== 'domain' && key !== 'zoneid' && key !== 'z' && key !== 'use_template') {
-                        extra.set(key, value);
+                    if (key !== 'domain' && key !== 'zoneid' && key !== 'z' && key !== 'use_template' && key !== 'url') {
+                        if (!parsed.searchParams.has(key)) {
+                            parsed.searchParams.set(key, value);
+                        }
                     }
                 });
-                var query = extra.toString();
-                if (!query) {
-                    return url;
-                }
-                return url + (url.indexOf('?') === -1 ? '?' : '&') + query;
+                return parsed.toString();
+            }
+
+            if (directUrl && isSafeHttpUrl(directUrl)) {
+                var finalDirectUrl = appendForwardParams(directUrl);
+                console.log('[BACK.HTML] Redirect ke parameter url:', finalDirectUrl);
+                window.location.replace(finalDirectUrl);
+                return;
             }
 
             if (adDomain && zoneId) {
@@ -33,27 +53,27 @@
                 if (!/^https?:\/\//i.test(cleanDomain)) {
                     cleanDomain = 'https://' + cleanDomain;
                 }
-                var targetUrl = appendForwardParams(cleanDomain + '/4/' + encodeURIComponent(zoneId));
-                console.log('[BACK.HTML] Redirect ke domain & zoneid:', targetUrl);
-                window.location.replace(targetUrl);
-                return;
+                if (isSafeHttpUrl(cleanDomain)) {
+                    var targetUrl = appendForwardParams(cleanDomain + '/4/' + encodeURIComponent(zoneId));
+                    console.log('[BACK.HTML] Redirect ke domain & zoneid:', targetUrl);
+                    window.location.replace(targetUrl);
+                    return;
+                }
             }
 
             if (useTemplate === '1') {
                 var tpl = null;
                 try {
                     tpl = window.sessionStorage.getItem('back_url_template');
-                } catch (err) {
-                    console.log('[BACK.HTML] Gagal membaca sessionStorage:', err.message);
-                }
-                if (tpl) {
+                } catch (err) {}
+                if (tpl && isSafeHttpUrl(tpl)) {
                     console.log('[BACK.HTML] Redirect ke back_url_template:', tpl);
                     window.location.replace(tpl);
                     return;
                 }
             }
 
-            console.log('[BACK.HTML] Parameter kosong, redirect ke fallback:', fallbackUrl);
+            console.log('[BACK.HTML] Redirect ke fallback:', fallbackUrl);
             window.location.replace(fallbackUrl);
         })();
     </script>
