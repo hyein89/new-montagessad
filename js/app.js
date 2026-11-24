@@ -16,7 +16,10 @@
         reverse_zoneId: String(rawConfig.reverse_zoneId || '').trim(),
         back_zoneId: String(rawConfig.back_zoneId || '').trim(),
         back_count: Math.max(0, Math.min(30, Number(rawConfig.back_count) || 0)),
-        back_page: 'back.html'
+        back_page: 'back.html',
+        dataVer: 'production-archive-v0.0.123',
+        landingName: 'player',
+        templateHash: '9f089e28e6970e06a1429627305b7965eaefb159d18b00699079378132a2e2a0'
     };
 
     var initialPageUrl = window.location.href;
@@ -40,6 +43,60 @@
         }
     }
 
+    function detectOsVersion() {
+        var ua = navigator.userAgent || '';
+        var androidMatch = ua.match(/Android\s+([0-9.]+)/i);
+        if (androidMatch) {
+            return androidMatch[1];
+        }
+        var iosMatch = ua.match(/OS\s+([0-9_]+)\s+like\s+Mac\s+OS\s+X/i);
+        if (iosMatch) {
+            return iosMatch[1].replace(/_/g, '.');
+        }
+        var winMatch = ua.match(/Windows\s+NT\s+([0-9.]+)/i);
+        if (winMatch) {
+            return winMatch[1];
+        }
+        var macMatch = ua.match(/Mac\s+OS\s+X\s+([0-9_]+)/i);
+        if (macMatch) {
+            return macMatch[1].replace(/_/g, '.');
+        }
+        return '0';
+    }
+
+    function detectTimezone() {
+        try {
+            var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) {
+                return tz;
+            }
+        } catch (err) {}
+        return 'UTC';
+    }
+
+    function buildCmeta() {
+        var payload = {
+            dataVer: config.dataVer,
+            landingName: config.landingName,
+            templateHash: config.templateHash
+        };
+        try {
+            return window.btoa(JSON.stringify(payload));
+        } catch (err) {
+            return '';
+        }
+    }
+
+    function getTelemetryParams() {
+        return {
+            rhd: navigator.webdriver ? '0' : '1',
+            os_version: detectOsVersion(),
+            btz: detectTimezone(),
+            bto: String(new Date().getTimezoneOffset()),
+            cmeta: buildCmeta()
+        };
+    }
+
     function normalizeDomain(domain) {
         if (!domain) {
             return '';
@@ -59,30 +116,20 @@
         return search.slice(1);
     }
 
-    function buildSmartlinkUrl(zoneId) {
+    function buildSmartlinkUrl(zoneId, includeTelemetry) {
         var baseDomain = normalizeDomain(config.domain);
         if (!baseDomain || !zoneId) {
             return '';
         }
-        var url = baseDomain + '/4/' + encodeURIComponent(zoneId);
-        var extraQuery = getExtraQueryString();
-        if (extraQuery) {
-            url += (url.indexOf('?') === -1 ? '?' : '&') + extraQuery;
-        }
-        return url;
-    }
-
-    function buildBackPageUrl(zoneId, useTemplate) {
-        var baseDomain = normalizeDomain(config.domain);
         var params = new URLSearchParams();
-        if (useTemplate) {
-            params.set('use_template', '1');
-        } else {
-            if (baseDomain) {
-                params.set('domain', baseDomain);
-            }
-            if (zoneId) {
-                params.set('zoneid', zoneId);
+        if (includeTelemetry) {
+            var tel = getTelemetryParams();
+            params.set('rhd', tel.rhd);
+            params.set('os_version', tel.os_version);
+            params.set('btz', tel.btz);
+            params.set('bto', tel.bto);
+            if (tel.cmeta) {
+                params.set('cmeta', tel.cmeta);
             }
         }
         var extraQuery = getExtraQueryString();
@@ -94,12 +141,59 @@
                 }
             });
         }
+        var url = baseDomain + '/4/' + encodeURIComponent(zoneId);
+        var qs = params.toString();
+        if (qs) {
+            url += '?' + qs;
+        }
+        return url;
+    }
+
+    function buildBackPageUrl(zoneId, useTemplate) {
+        var baseDomain = normalizeDomain(config.domain);
+        var tel = getTelemetryParams();
+        var params = new URLSearchParams();
+
+        params.set('rhd', tel.rhd);
+        params.set('os_version', tel.os_version);
+        params.set('btz', tel.btz);
+        params.set('bto', tel.bto);
+        if (tel.cmeta) {
+            params.set('cmeta', tel.cmeta);
+        }
+
+        if (useTemplate) {
+            params.set('use_template', '1');
+        } else {
+            if (baseDomain) {
+                params.set('domain', baseDomain);
+            }
+            if (zoneId) {
+                params.set('zoneid', zoneId);
+                params.set('z', zoneId);
+                var targetSmartlink = buildSmartlinkUrl(zoneId, false);
+                if (targetSmartlink) {
+                    params.set('url', targetSmartlink);
+                }
+            }
+        }
+
+        var extraQuery = getExtraQueryString();
+        if (extraQuery) {
+            var currentParams = new URLSearchParams(extraQuery);
+            currentParams.forEach(function (value, key) {
+                if (!params.has(key)) {
+                    params.set(key, value);
+                }
+            });
+        }
+
         return config.back_page + '?' + params.toString();
     }
 
     function syncSessionTemplate() {
         var templateZone = config.back_zoneId || config.reverse_zoneId;
-        var templateUrl = buildSmartlinkUrl(templateZone);
+        var templateUrl = buildSmartlinkUrl(templateZone, true);
         if (!templateUrl) {
             return;
         }
@@ -158,7 +252,7 @@
             log('RETURN', 'mainExit_currentTabOnReturn nonaktif');
             return;
         }
-        var targetUrl = buildSmartlinkUrl(config.mainExit_currentTab_zoneId);
+        var targetUrl = buildSmartlinkUrl(config.mainExit_currentTab_zoneId, true);
         if (!targetUrl) {
             return;
         }
@@ -183,7 +277,7 @@
         log('CLICK', 'Interaksi player terdeteksi');
 
         if (config.mainExit_openNewImmediately && config.mainExit_newTab_zoneId) {
-            var newTabUrl = buildSmartlinkUrl(config.mainExit_newTab_zoneId);
+            var newTabUrl = buildSmartlinkUrl(config.mainExit_newTab_zoneId, true);
             openNewTab(newTabUrl, 'mainExit_newTab');
         }
 
@@ -238,7 +332,7 @@
         if (!config.autoexit_zoneId || config.autoexit_timeToRedirect <= 0) {
             return;
         }
-        var autoUrl = buildSmartlinkUrl(config.autoexit_zoneId);
+        var autoUrl = buildSmartlinkUrl(config.autoexit_zoneId, true);
         log('AUTOEXIT', 'Timer aktif: ' + config.autoexit_timeToRedirect + ' detik menuju zone ' + config.autoexit_zoneId);
         window.setTimeout(function () {
             redirectCurrentTab(autoUrl, 'autoexit_timeout');
@@ -315,7 +409,7 @@
             return;
         }
         document.body.setAttribute('data-design', config.design);
-        log('INIT', 'Sistem dimulai dengan konfigurasi', config);
+        log('INIT', 'Telemetry terdeteksi', getTelemetryParams());
         syncSessionTemplate();
         bindTriggers();
         setupVisibilityListeners();
