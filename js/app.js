@@ -19,6 +19,8 @@
         back_page: 'back.html'
     };
 
+    var initialPageUrl = window.location.href;
+
     var state = {
         wasHidden: false,
         exitTriggered: false,
@@ -255,15 +257,15 @@
         var pushed = 0;
 
         for (var i = 0; i < totalSteps; i++) {
-            var isTopEntry = (i === totalSteps - 1);
-            var targetZone = (isTopEntry && config.reverse_zoneId) ? config.reverse_zoneId : config.back_zoneId;
+            var isTopTrap = (i === totalSteps - 1);
+            var targetZone = (isTopTrap && config.reverse_zoneId) ? config.reverse_zoneId : config.back_zoneId;
             var backHref = buildBackPageUrl(targetZone, false);
             try {
                 window.history.pushState({ trapIndex: i + 1, zoneId: targetZone }, '', backHref);
                 pushed++;
             } catch (err) {
                 try {
-                    window.history.pushState({ trapIndex: i + 1, zoneId: targetZone }, '', window.location.href);
+                    window.history.pushState({ trapIndex: i + 1, zoneId: targetZone }, '', initialPageUrl);
                     pushed++;
                 } catch (innerErr) {
                     log('BACKTRAP', 'History pushState dibatasi browser', innerErr.message);
@@ -271,6 +273,13 @@
                 }
             }
         }
+
+        try {
+            window.history.pushState({ activePage: true }, '', initialPageUrl);
+        } catch (restoreErr) {
+            log('BACKTRAP', 'Gagal mengembalikan URL utama pada history', restoreErr.message);
+        }
+
         log('BACKTRAP', 'History trap aktif (' + pushed + ' state via ' + source + ')');
     }
 
