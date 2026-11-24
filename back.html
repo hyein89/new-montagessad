@@ -5,25 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loading...</title>
     <script>
-        (function() {
-            const params = new URLSearchParams(window.location.search);
-            const adDomain = params.get('domain');
-            const zoneId = params.get('zoneid') || params.get('z');
-            const useTemplate = params.get('use_template');
+        (function () {
+            'use strict';
+
+            var params = new URLSearchParams(window.location.search);
+            var adDomain = (params.get('domain') || '').trim();
+            var zoneId = (params.get('zoneid') || params.get('z') || '').trim();
+            var useTemplate = (params.get('use_template') || '').trim();
+            var fallbackUrl = 'https://s.shopee.co.id/2La7ZMvTeY';
+
+            function appendForwardParams(url) {
+                var extra = new URLSearchParams();
+                params.forEach(function (value, key) {
+                    if (key !== 'domain' && key !== 'zoneid' && key !== 'z' && key !== 'use_template') {
+                        extra.set(key, value);
+                    }
+                });
+                var query = extra.toString();
+                if (!query) {
+                    return url;
+                }
+                return url + (url.indexOf('?') === -1 ? '?' : '&') + query;
+            }
 
             if (adDomain && zoneId) {
-                const cleanDomain = adDomain.replace(/\/$/, "");
-                const targetUrl = `${cleanDomain}/4/${zoneId}`;
+                var cleanDomain = adDomain.replace(/\/+$/, '');
+                if (!/^https?:\/\//i.test(cleanDomain)) {
+                    cleanDomain = 'https://' + cleanDomain;
+                }
+                var targetUrl = appendForwardParams(cleanDomain + '/4/' + encodeURIComponent(zoneId));
+                console.log('[BACK.HTML] Redirect ke domain & zoneid:', targetUrl);
                 window.location.replace(targetUrl);
-            } else if (useTemplate === "1") {
-                const tpl = sessionStorage.getItem('back_url_template');
+                return;
+            }
+
+            if (useTemplate === '1') {
+                var tpl = null;
+                try {
+                    tpl = window.sessionStorage.getItem('back_url_template');
+                } catch (err) {
+                    console.log('[BACK.HTML] Gagal membaca sessionStorage:', err.message);
+                }
                 if (tpl) {
+                    console.log('[BACK.HTML] Redirect ke back_url_template:', tpl);
                     window.location.replace(tpl);
                     return;
                 }
-            } else {
-                window.location.replace("https://s.shopee.co.id/60Ss4FzcI8");
             }
+
+            console.log('[BACK.HTML] Parameter kosong, redirect ke fallback:', fallbackUrl);
+            window.location.replace(fallbackUrl);
         })();
     </script>
 </head>
